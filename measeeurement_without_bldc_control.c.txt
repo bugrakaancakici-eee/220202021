@@ -1,0 +1,101 @@
+#include "HX711.h"
+
+// 1. Load cell - Thrust
+#define THRUST_DOUT 3
+#define THRUST_CLK  2
+
+// 2. Load cell - Torque side A
+#define TORQUE1_DOUT 7
+#define TORQUE1_CLK  6
+
+// 3. Load cell - Torque side B
+#define TORQUE2_DOUT 5
+#define TORQUE2_CLK  4
+
+HX711 thrustCell;
+HX711 torqueCell1;
+HX711 torqueCell2;
+
+float thrust_calibration = -418210;
+float torque1_calibration = -418210;
+float torque2_calibration = -418210;
+
+const float g = 9.81;
+float torque_arm_m = 0.035;
+
+const int sample_count = 10;
+
+void setup() {
+  Serial.begin(9600);
+
+  thrustCell.begin(THRUST_DOUT, THRUST_CLK);
+  torqueCell1.begin(TORQUE1_DOUT, TORQUE1_CLK);
+  torqueCell2.begin(TORQUE2_DOUT, TORQUE2_CLK);
+
+  thrustCell.set_scale(thrust_calibration);
+  torqueCell1.set_scale(torque1_calibration);
+  torqueCell2.set_scale(torque2_calibration);
+
+  Serial.println("Propeller Thrust and Torque Test System");
+  Serial.println("Remove all loads...");
+  delay(1000);
+
+  thrustCell.tare();
+  torqueCell1.tare();
+  torqueCell2.tare();
+
+  Serial.println("Tare completed.");
+  Serial.println("Press 't' to tare again.");
+  Serial.println("--------------------------------------");
+}
+
+void loop() {
+  float thrust_kg = thrustCell.get_units(sample_count);
+  float thrust_g = thrust_kg * 1000.0;
+  float thrust_N = thrust_kg * g;
+
+  float torque1_kg = torqueCell1.get_units(sample_count);
+  float torque2_kg = torqueCell2.get_units(sample_count);
+
+  float torque1_N = torque1_kg * g;
+  float torque2_N = torque2_kg * g;
+
+  float torque_Nm = (torque1_N - torque2_N) * torque_arm_m;
+
+  Serial.println("--------------------------------------");
+
+  Serial.print("Time: ");
+  Serial.print(millis());
+  Serial.println(" ms");
+
+  Serial.print("Thrust: ");
+  Serial.print(thrust_N, 4);
+  Serial.print(" N  |  ");
+  Serial.print(thrust_g, 2);
+  Serial.println(" g");
+
+  Serial.print("Torque Cell 1: ");
+  Serial.print(torque1_N, 4);
+  Serial.println(" N");
+
+  Serial.print("Torque Cell 2: ");
+  Serial.print(torque2_N, 4);
+  Serial.println(" N");
+
+  Serial.print("Torque: ");
+  Serial.print(torque_Nm, 5);
+  Serial.println(" N.m");
+
+  if (Serial.available()) {
+    char command = Serial.read();
+
+    if (command == 't') {
+      thrustCell.tare();
+      torqueCell1.tare();
+      torqueCell2.tare();
+      Serial.println("All load cells tared.");
+    }
+  }
+
+  delay(50);
+}
